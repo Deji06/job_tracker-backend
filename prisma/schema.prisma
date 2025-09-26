@@ -1,0 +1,57 @@
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ApplicationStatus {
+  APPLIED
+  INTERVIEW
+  OFFERED
+  REJECTED
+}
+
+enum JobType {
+  HYBRID
+  FULL_TIME
+  REMOTE
+  CONTRACT
+  INTERN
+  ENTRY_LEVEL
+
+}
+
+model User {
+  id Int @id @default(autoincrement())
+  name String 
+  email String  @unique
+  password String 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  resetToken String?
+  tokenExpiry DateTime? @default(now())
+
+  jobApplications JobDescription[]
+}
+
+model JobDescription {
+  id Int @id @default(autoincrement())
+  company String
+  title String
+  location  String
+  jobType JobType 
+  status ApplicationStatus @default(APPLIED)
+  appliedDate DateTime  @default(now())
+  link String?
+  notes String?
+  userId Int  //foreign key
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User  @relation(fields: [userId], references: [id])
+}

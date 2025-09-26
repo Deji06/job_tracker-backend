@@ -1,0 +1,135 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.JobRouter = void 0;
+const express_1 = require("express");
+const zod_1 = require("zod");
+const authMiddleware_1 = require("../Middlewares/authMiddleware");
+const prisma_1 = require("../../generated/prisma");
+const errors_1 = require("../errors");
+exports.JobRouter = (0, express_1.Router)();
+const prisma = new prisma_1.PrismaClient();
+const jobSchema = zod_1.z.object({
+    company: zod_1.z.string().min(1),
+    title: zod_1.z.string().min(1),
+    location: zod_1.z.string().min(1),
+    jobType: zod_1.z.nativeEnum(prisma_1.JobType),
+    status: zod_1.z.nativeEnum(prisma_1.ApplicationStatus),
+    appliedDate: zod_1.z.string().optional(),
+    link: zod_1.z.string().url(),
+    notes: zod_1.z.string().optional(),
+    //   userId: z.number(),
+});
+exports.JobRouter.post('/createJob', authMiddleware_1.authMiddleware, async (req, res, next) => {
+    try {
+        const { company, title, location, jobType, status, appliedDate, link, notes } = jobSchema.parse(req.body);
+        if (!company || !title || !jobType) {
+            throw new errors_1.BadRequestError('company, title and jobtype are required');
+        }
+        const job = await prisma.jobDescription.create({
+            data: {
+                company,
+                title,
+                location,
+                jobType,
+                status,
+                appliedDate: appliedDate ? new Date(appliedDate) : undefined,
+                link,
+                notes,
+                user: {
+                    connect: { id: req.user.id }
+                }
+            }
+        });
+        res.status(201).json({ msg: "Job created successfully", job });
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.JobRouter.get('/getJobs', authMiddleware_1.authMiddleware, async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const { page = '1', limit = "10", jobType, ApplicationStatus, search, sortBy, order } = req.query;
+        const pageNumber = parseInt(page, 10);
+        const pageSize = parseInt(limit, 10);
+        const filters = { userId };
+        if (ApplicationStatus)
+            filters.ApplicationStatus = ApplicationStatus;
+        if (jobType)
+            filters.jobType = jobType;
+        if (search) {
+            filters.OR = [
+                { title: { contains: search, mode: "insensitive" } },
+                { company: { contains: search, mode: "insensitive" } }
+            ];
+        }
+        const jobs = await prisma.jobDescription.findMany({
+            where: filters,
+            skip: (pageNumber - 1) * pageSize,
+            take: pageSize,
+            orderBy: sortBy ? { [sortBy]: order === "desc" ? "desc" : "asc" } : { createdAt: "desc" }
+            // where:{userId: req.user!.id}
+        });
+        const totalJobs = await prisma.jobDescription.count({ where: filters });
+        return res.status(200).json({
+            page: pageNumber,
+            limit: pageSize,
+            totalJobs,
+            totalPages: Math.ceil(totalJobs / pageSize),
+            jobs
+        });
+    }
+    catch (error) {
+        console.error(error);
+        res.status(500).json({ msg: "Something went wrong", error });
+    }
+});
+exports.JobRouter.patch('/updateJob/:id', authMiddleware_1.authMiddleware, async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { company, title, location, jobType, status, appliedDate, link, notes } = req.body;
+        if (jobType && !Object.values(prisma_1.JobType).includes(jobType)) {
+            return res.status(400).json({ msg: "Invalid job type" });
+        }
+        if (status && !Object.values(prisma_1.ApplicationStatus).includes(status)) {
+            return res.status(400).json({ msg: "Invalid job status" });
+        }
+        const existingJob = await prisma.jobDescription.findUnique({
+            where: { id: Number(id) },
+        });
+        if (!existingJob || existingJob.userId !== req.user.id) {
+            return res.status(404).json({ msg: "Job not found or not authorized" });
+        }
+        const updateJob = await prisma.jobDescription.update({
+            where: { id: Number(id) },
+            data: {
+                company,
+                title,
+                location,
+                jobType,
+                status,
+                appliedDate: appliedDate ? new Date(appliedDate) : undefined,
+                link,
+                notes
+            }
+        });
+        return res.status(200).json({ msg: 'job updated sucessfully', updateJob });
+    }
+    catch (error) {
+        console.error(error);
+        next(error);
+    }
+});
+exports.JobRouter.delete('/deleteJob/:id', async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const deleteJob = await prisma.jobDescription.delete({
+            where: { id: Number(id) }
+        });
+        return res.status(200).json({ msg: 'job sucessfully deleted', deleteJob });
+    }
+    catch (error) {
+        console.error(error);
+        next(error);
+    }
+});
