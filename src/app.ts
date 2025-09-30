@@ -9,15 +9,15 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // max requests per IP
-  message: "Too many requests from this IP, please try again later"
-});
+// const limiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 100, // max requests per IP
+//   message: "Too many requests from this IP, please try again later"
+// });
 const app = express()
 const PORT = process.env.PORT || 3000
 
-app.use(limiter);
+// app.use(limiter);
 app.use(cors({
   origin: '*', 
   methods: ["GET", "POST", "PUT", "DELETE"],
