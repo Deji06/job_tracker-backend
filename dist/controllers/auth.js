@@ -22,6 +22,8 @@ router.post('/register', async (req, res, next) => {
         if (!email || !name || !password) {
             throw new errors_1.BadRequestError('provide all credentials');
         }
+        await prisma.$connect();
+        console.log('Prisma connected to Supabase');
         // checking if user already exist
         const checkExistingUsers = await prisma.user.findUnique({ where: { email } });
         if (checkExistingUsers) {
