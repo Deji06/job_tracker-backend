@@ -56,7 +56,12 @@ router.post('/login', async (req, res, next) => {
             throw new errors_1.BadRequestError('password does not match');
         }
         const token = (0, auth_1.createJWT)({ userId: user.id });
-        res.status(200).json({ token });
+        res.status(200).json({
+            id: user.id,
+            msg: 'login successful',
+            name: user.name,
+            token
+        });
     }
     catch (error) {
         next(error);
