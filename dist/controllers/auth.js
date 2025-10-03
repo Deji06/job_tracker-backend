@@ -92,14 +92,22 @@ router.post('/forget_password', async (req, res, next) => {
         const resetLink = `http://localhost:3000/reset_password?token=${resetPasswordToken}&id=${user.id}`;
         //  nodemailer implementation
         const transporter = nodemailer_1.default.createTransport({
-            service: "gmail",
+            // service: "gmail", 
+            host: "smtp.gmail.com",
+            port: 587,
+            secure: false,
             auth: {
                 user: process.env.EMAIL_USER,
                 pass: process.env.EMAIL_PASS,
             },
         });
+        // Verify SMTP connection
+        await transporter.verify().catch((err) => {
+            console.error("SMTP verification failed:", err);
+            throw new Error(`SMTP connection failed: ${err.message}`);
+        });
         await transporter.sendMail({
-            from: process.env.EMAIL_USER,
+            from: `"Job Tracker" <${process.env.EMAIL_USER}>`,
             to: user.email,
             subject: "Password Reset Request",
             html: `
@@ -109,9 +117,11 @@ router.post('/forget_password', async (req, res, next) => {
             <p>This link expires in 15 minutes.</p>
             `,
         });
+        console.log(`Password reset email sent to ${user.email}`);
         res.status(200).json({ msg: 'password reset link sent to your email addy' });
     }
     catch (error) {
+        console.error("Error in forget_password:", error);
         next(error);
     }
 });
