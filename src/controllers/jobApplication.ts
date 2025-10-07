@@ -16,7 +16,7 @@ const jobSchema = z.object({
   jobType: z.nativeEnum(JobType),
   status: z.nativeEnum(ApplicationStatus),
   appliedDate: z.string().optional(),
-  link: z.string().url(),
+  link: z.string().url().or(z.literal("")).nullable().optional(),
   notes: z.string().optional(),
 //   userId: z.number(),
 });

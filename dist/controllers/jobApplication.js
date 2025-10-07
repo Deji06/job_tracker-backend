@@ -15,7 +15,7 @@ const jobSchema = zod_1.z.object({
     jobType: zod_1.z.nativeEnum(prisma_1.JobType),
     status: zod_1.z.nativeEnum(prisma_1.ApplicationStatus),
     appliedDate: zod_1.z.string().optional(),
-    link: zod_1.z.string().url(),
+    link: zod_1.z.string().url().or(zod_1.z.literal("")).nullable().optional(),
     notes: zod_1.z.string().optional(),
     //   userId: z.number(),
 });
