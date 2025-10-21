@@ -16,18 +16,20 @@ const prisma = new prisma_1.PrismaClient();
 const router = (0, express_1.Router)();
 dotenv_1.default.config();
 // REGISTERATION
-router.post('/register', async (req, res, next) => {
+router.post("/register", async (req, res, next) => {
     try {
         const { name, email, password } = validation_1.registerationSchema.parse(req.body);
         if (!email || !name || !password) {
-            throw new errors_1.BadRequestError('provide all credentials');
+            throw new errors_1.BadRequestError("provide all credentials");
         }
         await prisma.$connect();
-        console.log('Prisma connected to Supabase');
+        console.log("Prisma connected to Supabase");
         // checking if user already exist
-        const checkExistingUsers = await prisma.user.findUnique({ where: { email } });
+        const checkExistingUsers = await prisma.user.findUnique({
+            where: { email },
+        });
         if (checkExistingUsers) {
-            throw new errors_1.BadRequestError('User already exists');
+            throw new errors_1.BadRequestError("User already exists");
         }
         const hashedPassword = await (0, auth_1.hashPassword)(password);
         const user = await prisma.user.create({
@@ -41,26 +43,26 @@ router.post('/register', async (req, res, next) => {
     }
 });
 // LOGIN
-router.post('/login', async (req, res, next) => {
+router.post("/login", async (req, res, next) => {
     try {
         const { email, password } = validation_1.loginSchema.parse(req.body);
         if (!email || !password) {
-            throw new errors_1.BadRequestError('provide valid credentials');
+            throw new errors_1.BadRequestError("provide valid credentials");
         }
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user) {
-            throw new errors_1.BadRequestError('account does not exist, check credentials or create an account');
+            throw new errors_1.BadRequestError("account does not exist, check credentials or create an account");
         }
         const isPasswordMatch = await (0, auth_1.comparePassword)(password, user.password);
         if (!isPasswordMatch) {
-            throw new errors_1.BadRequestError('password does not match');
+            throw new errors_1.BadRequestError("password does not match");
         }
         const token = (0, auth_1.createJWT)({ userId: user.id });
         res.status(200).json({
             id: user.id,
-            msg: 'login successful',
+            msg: "login successful",
             name: user.name,
-            token
+            token,
         });
     }
     catch (error) {
@@ -68,20 +70,20 @@ router.post('/login', async (req, res, next) => {
     }
 });
 // FOREGT PASSSWORD
-router.post('/forget_password', async (req, res, next) => {
+router.post("/forget_password", async (req, res, next) => {
     const resend = new resend_1.Resend(process.env.RESEND_API_KEY);
     try {
         const { email } = validation_1.forget_password_Schema.parse(req.body);
         if (!email) {
-            throw new errors_1.BadRequestError('provide email address');
+            throw new errors_1.BadRequestError("provide email address");
         }
         const user = await prisma.user.findUnique({
-            where: { email }
+            where: { email },
         });
         if (!user) {
-            throw new errors_1.BadRequestError('user does not exist');
+            throw new errors_1.BadRequestError("user does not exist");
         }
-        const resetPasswordToken = crypto_1.default.randomBytes(32).toString('hex');
+        const resetPasswordToken = crypto_1.default.randomBytes(32).toString("hex");
         const Tokenexpiry = new Date(Date.now() + 1000 * 60 * 15);
         await prisma.user.update({
             where: { id: user.id },
@@ -90,23 +92,26 @@ router.post('/forget_password', async (req, res, next) => {
                 tokenExpiry: Tokenexpiry,
             },
         });
-        const resetLink = `https://trackjobs.vercel.app/reset_password?token=${resetPasswordToken}&id=${user.id}`;
+        const frontendUrl = process.env.NODE_ENV === "production"
+            ? process.env.PROD_FRONTEND_URL
+            : process.env.LOCAL_FRONTEND_URL || "http://localhost:3000";
+        const resetLink = `${frontendUrl}/reset_password?token=${resetPasswordToken}&id=${user.id}`;
         //  const resetLink = `http://localhost:3000/reset_password?token=${resetPasswordToken}&id=${user.id}`;
         const { error } = await resend.emails.send({
             from: "Job Tracker <noreply@resend.dev>",
             to: user.email,
-            subject: 'Password Reset Request',
+            subject: "Password Reset Request",
             html: `
                 <p>Hello ${user.name || "there"},</p>
                 <p>You requested a password reset. Click below to reset your password:</p>
                 <a href="${resetLink}">${resetLink}</a>
                 <p>This link will expire in 15 minutes.</p>
-          `
+          `,
         });
         if (error)
             throw new Error(`Email failed: ${error.message}`);
         console.log(`Password reset email sent to ${user.email}`);
-        res.status(200).json({ msg: 'password reset link sent to your email' });
+        res.status(200).json({ msg: "password reset link sent to your email" });
     }
     catch (error) {
         console.error("Error in forget_password:", error);
@@ -122,7 +127,7 @@ router.post("/reset_password", async (req, res, next) => {
         const user = await prisma.user.findFirst({
             where: {
                 resetToken: token,
-                tokenExpiry: { gte: new Date() } // ensure not expired
+                tokenExpiry: { gte: new Date() }, // ensure not expired
             },
         });
         if (!user || !user.resetToken || !user.tokenExpiry) {
