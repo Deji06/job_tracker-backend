@@ -101,7 +101,7 @@ router.post('/forget_password', async(req:AuthenticatedRequest, res:Response, ne
         //  const resetLink = `http://localhost:3000/reset_password?token=${resetPasswordToken}&id=${user.id}`;
         const {error} = await resend.emails.send({
             from: "Job Tracker <noreply@resend.dev>",
-            to: user.name,
+            to: user.email,
             subject: 'Password Reset Request',
             html: `
                 <p>Hello ${user.name || "there"},</p>
