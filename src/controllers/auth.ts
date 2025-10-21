@@ -4,13 +4,15 @@ import { BadRequestError } from "../errors";
 import { comparePassword, createJWT, hashPassword } from "../utils/auth";
 import { AuthenticatedRequest } from "../Middlewares/authMiddleware";
 import { registerationSchema , loginSchema, forget_password_Schema, resetPasswordSchema} from "../utils/validation";
-import nodemailer from 'nodemailer'
 import crypto from 'crypto'
 import bcrypt from 'bcryptjs'
 import dotenv from 'dotenv'
+import { Resend } from "resend";
+
 
 const prisma = new PrismaClient()
 const router = Router()
+
 dotenv.config()
 
 // REGISTERATION
@@ -70,6 +72,7 @@ router.post('/login', async (req:Request, res: Response, next:NextFunction) => {
 
 // FOREGT PASSSWORD
 router.post('/forget_password', async(req:AuthenticatedRequest, res:Response, next:NextFunction) => {
+    const resend = new Resend(process.env.RESEND_API_KEY);
     try {
         const {email} = forget_password_Schema.parse(req.body)
         if(!email) {
@@ -94,39 +97,22 @@ router.post('/forget_password', async(req:AuthenticatedRequest, res:Response, ne
 
             },
         })
-         const resetLink = `http://localhost:3000/reset_password?token=${resetPasswordToken}&id=${user.id}`;
-
-        //  nodemailer implementation
-        const transporter = nodemailer.createTransport({
-            // service: "gmail", 
-            host: "smtp.gmail.com",
-            port:587,
-            secure:false,
-            auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS,
-            },
-        });
-
-        // Verify SMTP connection
-    await transporter.verify().catch((err) => {
-      console.error("SMTP verification failed:", err);
-      throw new Error(`SMTP connection failed: ${err.message}`);
-    });
-
-        await transporter.sendMail({
-            from: `"Job Tracker" <${process.env.EMAIL_USER}>`,
-            to: user.email,
-            subject: "Password Reset Request",
+        const resetLink = `https://trackjobs.vercel.app/reset_password?token=${resetPasswordToken}&id=${user.id}`;
+        //  const resetLink = `http://localhost:3000/reset_password?token=${resetPasswordToken}&id=${user.id}`;
+        const {error} = await resend.emails.send({
+            from: "Job Tracker <noreply@resend.dev>",
+            to: user.name,
+            subject: 'Password Reset Request',
             html: `
-            <p>Hello ${user.name},</p>
-            <p>You requested a password reset. Click below to reset your password:</p>
-            <a href="${resetLink}">${resetLink}</a>
-            <p>This link expires in 15 minutes.</p>
-            `,
-        });
+                <p>Hello ${user.name || "there"},</p>
+                <p>You requested a password reset. Click below to reset your password:</p>
+                <a href="${resetLink}">${resetLink}</a>
+                <p>This link will expire in 15 minutes.</p>
+          `
+        })
+        if (error) throw new Error(`Email failed: ${error.message}`);
         console.log(`Password reset email sent to ${user.email}`);
-        res.status(200).json({msg:'password reset link sent to your email addy'})
+        res.status(200).json({msg:'password reset link sent to your email'})
     } catch (error) {
         console.error("Error in forget_password:", error);
         next(error)
